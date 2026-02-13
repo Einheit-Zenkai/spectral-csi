@@ -34,7 +34,9 @@ ENV/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
+# Ignore notebooks in root or temp directories, but allow notebooks in notebooks/
+/*.ipynb
+/tmp/*.ipynb
 
 # Data
 data/raw/
