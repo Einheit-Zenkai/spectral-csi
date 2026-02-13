@@ -1,0 +1,47 @@
+{
+  "data": {
+    "n_subcarriers": 30,
+    "sequence_length": 100,
+    "sampling_rate": 1000.0,
+    "train_split": 0.8,
+    "batch_size": 32,
+    "num_workers": 4
+  },
+  "model": {
+    "type": "bayesian",
+    "input_dim": 480,
+    "hidden_dims": [256, 128, 64],
+    "output_dim": 1,
+    "dropout_rate": 0.15,
+    "n_monte_carlo": 50
+  },
+  "training": {
+    "epochs": 100,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-5,
+    "optimizer": "adam",
+    "scheduler": {
+      "type": "reduce_on_plateau",
+      "patience": 5,
+      "factor": 0.5
+    },
+    "early_stopping": {
+      "patience": 15,
+      "min_delta": 0.0001
+    }
+  },
+  "uncertainty": {
+    "use_epistemic": true,
+    "use_aleatoric": true,
+    "uncertainty_weight": 0.1
+  },
+  "logging": {
+    "log_interval": 10,
+    "save_dir": "checkpoints",
+    "experiment_name": "spectral_csi_experiment"
+  },
+  "hardware": {
+    "device": "auto",
+    "seed": 42
+  }
+}
