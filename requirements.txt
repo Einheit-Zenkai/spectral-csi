@@ -1,0 +1,16 @@
+# Core
+numpy
+scipy
+pandas
+
+# Deep learning (install may vary by CUDA/CPU)
+torch
+torchvision
+
+# ML utilities
+scikit-learn
+tqdm
+
+# Visualization
+matplotlib
+seaborn
