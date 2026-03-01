@@ -1,202 +1,164 @@
-# Spectral-CSI: Bayesian Occupancy & Latency Minimization
+# Spectral-CSI
 
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Framework: PyTorch](https://img.shields.io/badge/Framework-PyTorch-orange.svg)
-![Status: IEEE Format](https://img.shields.io/badge/Status-IEEE%20Format-green)
-
-Spectral-CSI is a privacy-preserving indoor sensing framework that estimates **occupancy (crowd density)** using **Wi‑Fi Channel State Information (CSI)** instead of cameras. The output is not only an occupancy estimate, but also **model uncertainty** (confidence) so building/network controllers can take safe actions when RF conditions are noisy.
-
-This repository currently contains the project documentation + reports. Code modules can be added following the suggested layout in the “Repository Layout” section.
+**Smart building occupancy detection using WiFi Channel State Information (CSI).**
 
 ---
 
-## 📋 Abstract
-Smart buildings often need occupancy awareness to optimize **HVAC energy** and **network QoS** (e.g., bandwidth throttling, AP steering). Camera-based solutions raise privacy concerns and require line-of-sight.
+## What is this?
 
-Spectral-CSI leverages CSI as a fine-grained RF measurement. Human motion introduces stochastic perturbations (micro-Doppler / time-varying multipath) that appear as structured energy changes in the time–frequency domain.
+Spectral-CSI is a proof-of-concept system that analyzes WiFi signals to detect human presence in rooms—even when people are sitting still. Unlike traditional motion sensors that turn off lights when you're working quietly, this system uses signal processing and machine learning to detect stationary occupants.
 
-We combine:
-- **Spectral feature extraction** (STFT/PSD + denoising)
-- A **Bayesian Deep Learning** model (Monte Carlo Dropout over a CNN/ResNet backbone)
-
-to produce:
-- Occupancy estimate (mean)
-- Uncertainty score (variance) for safe control decisions
+The goal: Enable smarter building automation that saves energy without frustrating users.
 
 ---
 
-## 🎯 What This Project Aims to Achieve
+## The Problem with Current Systems
 
-**Primary objective**: Estimate indoor occupancy accurately **without identifying individuals**.
+Traditional smart lighting uses PIR (Passive Infrared) motion sensors. They have major flaws:
 
-**Control objective**: Reduce infrastructure latency/overreaction by driving control logic with a *probabilistic* estimate.
+| Problem | Description | Impact |
+|---------|-------------|---------|
+| False negatives | You sit still to read/work → lights turn off | User frustration, productivity loss |
+| Slow timeouts | 15-30 minute delays before turning off | Energy wasted in empty rooms |
+| No confidence | Binary on/off, no nuance | Can't make intelligent decisions |
 
-**Operational goals**:
-1. **Privacy preservation**: no images, no microphones, no biometric collection.
-2. **Real-time inference**: support low-latency streaming windows (e.g., 0.5–2.0 s windows).
-3. **Uncertainty-aware automation**: when uncertainty is high, the system flags “low confidence” and avoids aggressive HVAC/network changes.
-
----
-
-## 🧱 Tech Stack (Detailed)
-
-### Core
-- **Python**: 3.9+ (recommended 3.10/3.11 if supported by your PyTorch build)
-- **PyTorch**: neural networks, training loops, GPU acceleration
-- **Torchvision**: ResNet backbones if using image-like spectrogram inputs
-
-### Signal Processing
-- **NumPy**: numerical arrays, windowing
-- **SciPy**: STFT/FFT, filters (Butterworth), statistics
-
-### ML Utilities
-- **scikit-learn**: metrics (RMSE), preprocessing, baselines
-- **tqdm**: progress bars
-
-### Data Handling
-- **pandas**: time-series alignment, aggregation, CSV/Parquet I/O
-
-### Visualization
-- **matplotlib / seaborn**: spectral heatmaps, uncertainty plots
-
-### Optional Hardware / Data Capture
-- **ESP32 CSI Tool** (community firmware/tooling) or
-- **Intel 5300 NIC CSI Tool** (research hardware)
-
-### Datasets (Common Choices)
-- **Widar3.0** (Wi‑Fi sensing dataset)
-- **StanWiFi** (Wi‑Fi sensing dataset)
+**The idea:** WiFi signals are disrupted by human bodies (water content, breathing, micro-movements). We can detect these disruptions to verify presence—no cameras, no wearables, no privacy invasion.
 
 ---
 
-## 🧠 Theoretical Framework (Syllabus Mapping)
+## What it COULD do (theoretically)
 
-This project maps to **Stochastic Processes & Probability Theory** concepts.
+| Scenario | Detection Method | Feasibility |
+|----------|------------------|-------------|
+| Person sitting still | CSI amplitude/phase variations from breathing | Demonstrated in research papers |
+| Empty room detection | Signal stability returns to baseline | Demonstrated in research papers |
+| Multiple occupants | Distinct signal patterns | More complex, requires good data |
+| Through-wall sensing | Signal penetration analysis | Requires specialized hardware setup |
 
-### 1) Spectral Feature Extraction (Unit 3)
-Over short windows, raw CSI sequences can be treated as approximately **wide-sense stationary (WSS)**. We extract spectral signatures using STFT/PSD to highlight time-varying Doppler components caused by human motion.
-
-Typical operations:
-- Windowing + STFT
-- PSD estimation
-- Autocorrelation-based filtering to reduce static multipath components
-
-### 2) Stochastic Arrival Modeling (Unit 3)
-Occupant arrivals can be modeled (at a coarse scale) using a Poisson process:
-
-$$P(N(t)=k) = \frac{(\lambda t)^k e^{-\lambda t}}{k!}$$
-
-This supports forecasting peak occupancy windows, which can be used for proactive network routing / HVAC scheduling.
-
-### 3) Bayesian Inference & Uncertainty (Unit 1 & 2)
-Deterministic neural networks often produce overconfident predictions. We use **Monte Carlo Dropout** as an approximation to Bayesian posterior inference.
-
-Instead of outputting only a single count, the model estimates a predictive distribution, commonly summarized by $(\mu, \sigma^2)$.
-
-Decision rule example:
-- Low variance: allow automatic HVAC/bandwidth adaptation
-- High variance: mark *Low Confidence* and fall back to conservative policies
+**Important caveat:** Most published research uses controlled lab environments with specialized hardware (Intel 5300 NICs, modified firmware). Real-world performance is likely lower.
 
 ---
 
-## 🏗 System Architecture
+## What it CANNOT do
 
-```mermaid
-flowchart LR
-		A[Raw Wi‑Fi CSI Stream] --> B[STFT / Spectrogram]
-		B --> C[Signal Denoising]
-		C --> D[Bayesian CNN / ResNet Backbone]
-		D --> E[Monte Carlo Sampling (Dropout at Inference)]
-		E --> F[Occupancy Mean]
-		E --> G[Uncertainty (Variance)]
-		F --> H[Optimization API]
-		G --> H
-		H --> I[HVAC / Network Bandwidth Control]
-```
+Let's be clear about limitations:
+
+- **No real-time accuracy claims yet** - This is a student project, not a validated commercial system
+- **Hardware dependent** - Needs WiFi cards that expose CSI data (not all do)
+- **Environment specific** - Each room/setup requires calibration
+- **No miracle detection** - Can't reliably distinguish between a person and a large pet, or detect people hidden behind metal
+- **Limited range** - Works best in small-to-medium rooms (not large halls)
 
 ---
 
-## 📊 Key Results (From Project Summary)
+## Technical Approach
 
-| Metric | Spectral-CSI (Ours) | Standard CNN | Improvement |
-|---|---:|---:|---:|
-| Accuracy | 94.8% | 89.2% | +5.6% |
-| RMSE | 0.65 | 1.12 | -42% |
-| Latency | 12ms | 45ms | 3.7× faster |
+The planned system architecture:
 
-Notes:
-- Results depend on dataset, window size, sampling rate, and hardware.
-- Latency should be reported with the same compute target (CPU/GPU) and batch size.
+### Signal Processing Pipeline
+
+1. **Capture:** Extract Channel State Information from WiFi packets
+2. **Preprocess:** Denoise using wavelet transforms, remove outliers
+3. **Feature Extraction:** Convert to spectrograms, calculate power spectral density
+4. **Classification:** Use neural network to classify occupancy state
+5. **Decision:** Output probability of occupancy with confidence bounds
+
+### Why This Matters (Academic Context)
+
+This project applies concepts from:
+- **Stochastic signal processing** - treating WiFi CSI as random processes
+- **Hypothesis testing** - statistically deciding if a room is empty
+- **Bayesian inference** - incorporating prior knowledge to prevent false triggers
+- **Time series analysis** - detecting patterns like breathing cycles (0.2-0.5 Hz)
 
 ---
 
-## ✅ Installation
+## Tech Stack
 
-### 1) Create a virtual environment (recommended)
+| Component | Technology |
+|-----------|-----------|
+| Language | Python 3.9+ |
+| Signal Processing | NumPy, SciPy (FFT, filtering, wavelets) |
+| Machine Learning | PyTorch (planned) |
+| Statistics | SciPy.stats (hypothesis testing) |
+| Data | Pandas, Matplotlib |
+| Hardware | ESP32 CSI Tool / Intel 5300 NIC (optional) |
 
-Windows PowerShell:
+---
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-```
+## Project Status
 
-### 2) Install dependencies
+🚧 **Early Development**
 
-If `requirements.txt` exists:
+- [x] Project planning and documentation
+- [x] Dependencies identified
+- [ ] CSI data acquisition
+- [ ] Preprocessing pipeline
+- [ ] Feature extraction
+- [ ] Model training
+- [ ] Testing and validation
+
+See [INTERIM_REPORT.md](INTERIM_REPORT.md) for detailed progress.
+
+---
+
+## Who is this for?
+
+- Students learning about signal processing and ML
+- Researchers exploring WiFi sensing applications
+- Anyone interested in non-intrusive occupancy detection
+- Offices, malls, and grocery stores wanting automated lighting that turns off when people leave rooms (no WiFi signal detected)
+
+---
+
+## Who is this NOT for?
+
+- Anyone needing a production-ready system right now
+- Anyone expecting plug-and-play installation
+- Anyone wanting guaranteed accuracy metrics (we're still building it)
+
+---
+
+## Getting Started
+
+### Installation
 
 ```bash
+git clone https://github.com/yourusername/spectral-csi.git
+cd spectral-csi
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   # Windows
+# source .venv/bin/activate    # Linux/Mac
 pip install -r requirements.txt
 ```
 
-If PyTorch install fails, install PyTorch from the official selector for your CUDA/CPU setup, then reinstall the remaining dependencies.
+### Next Steps
+
+The codebase is in early stages. Check back for:
+- Data collection scripts
+- Preprocessing utilities
+- Model training notebooks
+- Example datasets
 
 ---
 
-## 🗂️ Repository Layout (Suggested)
+## Expected Outcomes (Realistic)
 
-Because this repo is currently documentation-first, here is a clean layout to add when you start implementing:
+Based on published research, systems like this achieve:
+- **Empty room detection:** 85-95% accuracy
+- **Stationary person detection:** 75-90% accuracy  
+- **Response time:** 5-30 seconds (depends on signal window size)
 
-```
-spectral-csi/
-	data/                   # ignored: raw and processed datasets
-	notebooks/              # exploration, plots
-	src/
-		spectral_csi/
-			dsp/                # STFT/PSD, filters
-			models/             # Bayesian CNN/ResNet + MC Dropout
-			training/           # training loops, loss, metrics
-			inference/          # streaming inference + uncertainty
-			api/                # control API (optional)
-	reports/
-		INTERIM_REPORT.md
-	requirements.txt
-	README.md
-```
+These are research-grade results, not commercial-system guarantees.
 
 ---
 
-## 🔬 Method Overview (Implementation Notes)
+## Disclaimer
 
-1. **Acquire CSI**: collect complex CSI matrices per subcarrier and antenna.
-2. **Preprocess**: calibration, amplitude/phase sanitization (dataset/hardware dependent).
-3. **Time–frequency transform**: STFT to create a spectrogram per window.
-4. **Denoise**: remove static components, smooth spectral bins, normalize.
-5. **Model**: CNN/ResNet processes spectrogram “images”.
-6. **Bayesian inference**: enable dropout at inference; run $T$ stochastic passes.
-7. **Outputs**: predictive mean occupancy and variance.
+This is an educational project exploring WiFi sensing techniques. It is not intended for deployment in production environments without extensive testing and validation. Users are responsible for ensuring compliance with local regulations regarding wireless signal monitoring.
 
 ---
 
-## 🧾 Citation
+## License
 
-If you use this project structure or write-up, cite:
-
-`[Your Name], "Spectral Occupancy Estimation: Minimizing Infrastructure Latency using Bayesian Deep Learning," 2024.`
-
----
-
-## 📜 License
-
-MIT License (see `LICENSE` if added).
+MIT License
