@@ -7,6 +7,9 @@ pandas
 torch
 torchvision
 
+# Signal processing
+PyWavelets
+
 # ML utilities
 scikit-learn
 tqdm
